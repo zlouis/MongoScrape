@@ -1,41 +1,26 @@
-//dependencies
 var express = require('express');
 var router = express.Router();
 var path = require('path');
 
-//require request and cheerio to scrape
+
 var request = require('request');
 var cheerio = require('cheerio');
 
-//Require models
 var Comment = require('../models/Comment.js');
 var Article = require('../models/Article.js');
 
-//index
 router.get('/', function(req, res) {
     res.redirect('/articles');
 });
 
-// router.get('/test-scrape', function(req, res) {
-//   request(result.link, function(error, response, html) {
-//     var $ = cheerio.load(html);
-
-//     $('.l-col__main').each(function(i, element){
-//       var result = {};
-
-//       console.log($(this).children('.c-entry-content').children('p').text());
-//     });
-//   });
-// });
-
-// A GET request to scrape the CNN website
+// request to scrape the CNN website
 router.get('/scrape', function(req, res) {
-    // First, we grab the body of the html with request
+    // Body of the html with request
     request('http://www.theverge.com/tech', function(error, response, html) {
-        // Then, we load that into cheerio and save it to $ for a shorthand selector
+        // Load into cheerio and save it to $ for a shorthand selector
         var $ = cheerio.load(html);
         var titlesArray = [];
-        // Now, we grab every article
+        // Scrape article
         $('.c-hub-entry__title').each(function(i, element) {
             // Save an empty result object
             var result = {};
@@ -83,16 +68,14 @@ router.get('/scrape', function(req, res) {
             console.log('Not saved to DB, missing data')
           }
         });
+        // after scrape, redirects to index
+        res.redirect('/');
     });
-    // after scrape, redirects to index
-    res.redirect('/articles');
 });
 
-//this will grab every article an populate the DOM
+
 router.get('/articles', function(req, res) {
-    //allows newer articles to be on top
     Article.find().sort({_id: -1})
-        //send to handlebars
         .exec(function(err, doc) {
             if(err){
                 console.log(err);
@@ -128,58 +111,69 @@ router.get('/clearAll', function(req, res) {
 });
 
 router.get('/readArticle/:id', function(req, res){
-  var articleID = req.params.id;
+  var articleId = req.params.id;
   var hbsObj = {
     article: [],
     body: []
-  }
-    //find the article at the id
-    Article.findOne({_id: articleID}, function(err,doc){ 
-      console.log(doc);
-      // hbsObj.article = doc;
-      // var link = hbsObj.article.link;
-      
-      // //grab article from article link
-      // request(link, function(error, response, html) {
-      //   var $ = cheerio.load(html);
+  };
 
-      //   $('.l-col__main').each(function(i, element){
-      //     // console.log($(this).children('.c-entry-content').children('p').text());
-      //      hbsObj.body = $(this).children('.c-entry-content').children('p').text();
-      //   });
-      // });
+    // //find the article at the id
+    Article.findOne({ _id: articleId })
+      .populate('comment')
+      .exec(function(err, doc){
+      if(err){
+        console.log('Error: ' + err);
+      } else {
+        hbsObj.article = doc;
+        var link = doc.link;
+        //grab article from link
+        request(link, function(error, response, html) {
+          var $ = cheerio.load(html);
+
+          $('.l-col__main').each(function(i, element){
+            hbsObj.body = $(this).children('.c-entry-content').children('p').text();
+            //send article body and comments to article.handlbars through hbObj
+            res.render('article', hbsObj);
+            //prevents loop through so it doesn't return an empty hbsObj.body
+            return false;
+          });
+        });
+      }
+
     });
-
-    //send article body and comments to article.handlbars through hbObj
-    res.render('article', hbsObj);
-
 });
 
 // Create a new comment
 router.post('/comment/:id', function(req, res) {
-  //submitted form
-  var result = {
-    name: req.body.name,
-    body: req.body.comment
-  };
+  var user = req.body.name;
+  var content = req.body.comment;
+  var articleId = req.params.id;
 
+  //submitted form
+  var commentObj = {
+    name: user,
+    body: content
+  };
+ 
   //using the Comment model, create a new comment
-  var newComment = new Comment(result);
+  var newComment = new Comment(commentObj);
 
   newComment.save(function(err, doc) {
       if (err) {
           console.log(err);
       } else {
-          Article.findOneAndUpdate({ "_id": req.params.id }, {$push: {'comments':doc._id}}, {new: true})
-              //execute everything
-              .exec(function(err, doc) {
-                  if (err) {
-                      console.log(err);
-                  } else {
-                      res.sendStatus(200);
-                  }
-              });
-      }
+          console.log(doc._id)
+          console.log(articleId)
+          Article.findOneAndUpdate({ "_id": req.params.id }, {$push: {'comment':doc._id}}, {new: true})
+            //execute everything
+            .exec(function(err, doc) {
+                if (err) {
+                    console.log(err);
+                } else {
+                    res.redirect('/readArticle/' + articleId);
+                }
+            });
+        }
   });
 });
 

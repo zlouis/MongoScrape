@@ -20,7 +20,10 @@ app.engine('handlebars', exphbs({
 }));
 app.set('view engine', 'handlebars');
 
-mongoose.connect('mongodb://localhost/scraped_news');
+//connecting to MongoDB
+mongoose.connect('MONGODB_URI: mongodb://heroku_tqvbxbsc:trvvndjahqfh3r3uaf1mh5vaei@ds133338.mlab.com:33338/heroku_tqvbxbsc');
+
+//mongoose.connect('mongodb://localhost/scraped_news');
 
 
 var db = mongoose.connection;
