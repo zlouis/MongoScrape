@@ -29,4 +29,4 @@ https://cryptic-forest-58896.herokuapp.com/
 * Materialize - Wireframe
 ##Authors
 
-Stefanie Ding - Full Stack Developer - Louis Huang
+Full Stack Developer - Louis Huang
